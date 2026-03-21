@@ -49,6 +49,15 @@ build/
 htmlcov/
 .coverage
 
+# Redis
+*.rdb
+
+# PID files
+.pids
+
+# Node
+node_modules/
+
 # Archives (projeye özel)
 files (1).zip
 *.rar
