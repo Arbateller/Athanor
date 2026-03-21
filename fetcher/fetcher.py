@@ -1,0 +1,223 @@
+"""
+fetcher.py - Parallel Stock Fetcher with RSI + MACD
+Uses ThreadPoolExecutor to fetch all stocks simultaneously.
+Run from inside the fetcher/ folder:
+    python fetcher.py
+"""
+
+import yfinance as yf
+import schedule
+import time
+import os
+import sys
+from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dotenv import load_dotenv
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", "config", ".env"))
+
+from cache import cache
+
+TRACKED_STOCKS = [s.strip().upper() for s in os.getenv("TRACKED_STOCKS", "AAPL,MSFT").split(",")]
+FETCH_INTERVAL = int(os.getenv("FETCH_INTERVAL", 300))
+MAX_WORKERS = int(os.getenv("MAX_WORKERS", 10))  # 10 parallel threads
+
+
+# ─── INDICATORS ───────────────────────────────────────────────────────────────
+
+def calculate_rsi(closes: list, period: int = 14):
+    if len(closes) < period + 1:
+        return None
+    diffs = [closes[i] - closes[i - 1] for i in range(-period, 0)]
+    gains = [d for d in diffs if d > 0]
+    losses = [abs(d) for d in diffs if d < 0]
+    avg_gain = sum(gains) / period if gains else 0
+    avg_loss = sum(losses) / period if losses else 0
+    if avg_loss == 0:
+        return 100.0
+    return round(100 - (100 / (1 + avg_gain / avg_loss)), 2)
+
+
+def calculate_ema(closes: list, period: int):
+    if len(closes) < period:
+        return []
+    ema = [sum(closes[:period]) / period]
+    k = 2 / (period + 1)
+    for price in closes[period:]:
+        ema.append((price - ema[-1]) * k + ema[-1])
+    return ema
+
+
+def calculate_macd(closes: list, fast=12, slow=26, signal=9):
+    if len(closes) < slow + signal:
+        return None, None, None
+    ema_fast = calculate_ema(closes, fast)
+    ema_slow = calculate_ema(closes, slow)
+    min_len = min(len(ema_fast), len(ema_slow))
+    macd_line = [f - s for f, s in zip(ema_fast[-min_len:], ema_slow[-min_len:])]
+    if len(macd_line) < signal:
+        return None, None, None
+    signal_line = calculate_ema(macd_line, signal)
+    if not signal_line:
+        return None, None, None
+    hist = macd_line[-1] - signal_line[-1]
+    return round(macd_line[-1], 4), round(signal_line[-1], 4), round(hist, 4)
+
+
+def get_signal(rsi, macd_hist):
+    if rsi is None or macd_hist is None:
+        return "UNKNOWN", "Not enough data"
+    bullish = macd_hist > 0
+    bearish = macd_hist < 0
+    if rsi < 30 and bullish:
+        return "STRONG BUY",  f"RSI {rsi} oversold + MACD bullish"
+    if rsi < 45 and bullish:
+        return "BUY",         f"RSI {rsi} low + MACD bullish momentum"
+    if rsi > 70 and bearish:
+        return "STRONG SELL", f"RSI {rsi} overbought + MACD bearish"
+    if rsi > 55 and bearish:
+        return "SELL",        f"RSI {rsi} high + MACD bearish momentum"
+    return "HOLD", f"RSI {rsi} neutral, no clear signal"
+
+
+# ─── FETCH ONE STOCK ──────────────────────────────────────────────────────────
+
+def fetch_single_stock(ticker: str):
+    try:
+        stock = yf.Ticker(ticker)
+        fast = stock.fast_info
+
+        price      = getattr(fast, "last_price", None) or 0
+        open_      = getattr(fast, "open", None) or 0
+        high       = getattr(fast, "day_high", None) or 0
+        low        = getattr(fast, "day_low", None) or 0
+        prev_close = getattr(fast, "previous_close", None) or 0
+        volume     = getattr(fast, "last_volume", None) or 0
+        market_cap = getattr(fast, "market_cap", None) or 0
+        year_high  = getattr(fast, "year_high", None) or 0
+        year_low   = getattr(fast, "year_low", None) or 0
+        currency   = getattr(fast, "currency", "USD") or "USD"
+        exchange   = getattr(fast, "exchange", "N/A") or "N/A"
+
+        change     = round(price - prev_close, 2) if price and prev_close else 0
+        change_pct = round((change / prev_close) * 100, 2) if prev_close else 0
+
+        # Historical closes for indicators
+        hist   = stock.history(period="60d", interval="1d")
+        closes = list(hist["Close"].values) if not hist.empty else []
+
+        rsi                          = calculate_rsi(closes) if len(closes) >= 15 else None
+        macd_line, sig_line, macd_h  = calculate_macd(closes) if len(closes) >= 35 else (None, None, None)
+        signal, reason               = get_signal(rsi, macd_h)
+
+        return {
+            "ticker":        ticker,
+            "name":          ticker,
+            "price":         round(price, 2),
+            "open":          round(open_, 2),
+            "high":          round(high, 2),
+            "low":           round(low, 2),
+            "prev_close":    round(prev_close, 2),
+            "change":        change,
+            "change_pct":    change_pct,
+            "volume":        int(volume),
+            "market_cap":    int(market_cap),
+            "52w_high":      round(year_high, 2),
+            "52w_low":       round(year_low, 2),
+            "currency":      currency,
+            "exchange":      exchange,
+            "indicators": {
+                "rsi_14":      rsi,
+                "macd_line":   macd_line,
+                "macd_signal": sig_line,
+                "macd_hist":   macd_h,
+            },
+            "signal":        signal,
+            "signal_reason": reason,
+            "fetched_at":    datetime.utcnow().isoformat() + "Z",
+        }
+
+    except Exception as e:
+        print(f"[Fetcher] ❌ {ticker}: {e}")
+        return None
+
+
+# ─── PARALLEL FETCH ALL ───────────────────────────────────────────────────────
+
+def fetch_all_stocks():
+    start = datetime.now()
+    total = len(TRACKED_STOCKS)
+    print(f"\n[Fetcher] 🔄 Fetching {total} stocks with {MAX_WORKERS} parallel workers...")
+
+    all_data = {}
+    success  = 0
+    failed   = 0
+
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        futures = {executor.submit(fetch_single_stock, t): t for t in TRACKED_STOCKS}
+
+        for future in as_completed(futures):
+            ticker = futures[future]
+            try:
+                data = future.result()
+                if data:
+                    cache.set_stock(ticker, data)
+                    all_data[ticker] = data
+                    success += 1
+                    sign = "+" if data["change"] >= 0 else ""
+                    rsi_str = f"RSI:{data['indicators']['rsi_14']}" if data['indicators']['rsi_14'] else "RSI:N/A"
+                    print(f"  ✅ {ticker:<12} ${data['price']:<10} {sign}{data['change_pct']}% | {rsi_str} | {data['signal']}")
+                else:
+                    failed += 1
+                    print(f"  ❌ {ticker} - No data")
+            except Exception as e:
+                failed += 1
+                print(f"  ❌ {ticker} - {e}")
+
+    # Save full snapshot to Redis so API can serve it immediately
+    if all_data:
+        cache.set_all_stocks(all_data)
+
+    elapsed = (datetime.now() - start).seconds
+    print(f"\n[Fetcher] ✅ {success}/{total} stocks fetched in {elapsed}s ({failed} failed)")
+
+    # Print alerts
+    alerts = [d for d in all_data.values() if "BUY" in d["signal"] or "SELL" in d["signal"]]
+    if alerts:
+        print("\n" + "=" * 55)
+        print("   ⚠️  ALERTS")
+        print("=" * 55)
+        for a in alerts:
+            emoji = "🟢" if "BUY" in a["signal"] else "🔴"
+            print(f"  {emoji}  {a['ticker']:<12} {a['signal']:<14} {a['signal_reason']}")
+        print("=" * 55 + "\n")
+
+
+# ─── MAIN ─────────────────────────────────────────────────────────────────────
+
+def main():
+    print("=" * 55)
+    print("   📈 Stock Fetcher — Parallel Mode")
+    print("=" * 55)
+
+    if not cache.is_connected():
+        print("❌ Redis not connected. Run: redis-server")
+        sys.exit(1)
+
+    print(f"✅ Redis connected")
+    print(f"📊 Tracking {len(TRACKED_STOCKS)} stocks")
+    print(f"⚡ Workers: {MAX_WORKERS} parallel threads")
+    print(f"⏱  Interval: every {FETCH_INTERVAL}s")
+    print("-" * 55)
+
+    fetch_all_stocks()
+    schedule.every(FETCH_INTERVAL).seconds.do(fetch_all_stocks)
+
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
+
+
+if __name__ == "__main__":
+    main()

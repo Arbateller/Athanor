@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+
+# Virtual Environment
+venv/
+env/
+.env
+.venv/
+
+# Environment & Secrets
+.env
+.env.local
+*.env
+
+# Cache
+*.cache
+.cache/
+cache/
+
+# IDE & Editor
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+
+# Build / Dist
+dist/
+build/
+*.egg-info/
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# Test
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Archives (projeye özel)
+files (1).zip
+*.rar
+*.zip
