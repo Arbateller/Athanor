@@ -26,7 +26,7 @@ def safe_int(val):
     except:
         return 0
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "fetcher"))
 
 from cache import cache
 
