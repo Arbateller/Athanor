@@ -1,0 +1,416 @@
+.indicator-panel {
+  max-width: 1400px;
+}
+
+/* ── Controls bar ───────────────────────────────────────────── */
+.ind-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+/* Ticker selector */
+.ticker-selector {
+  position: relative;
+}
+
+.ticker-input-wrap {
+  display: flex;
+  align-items: center;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0 10px;
+  gap: 6px;
+  cursor: pointer;
+  transition: border-color var(--transition);
+  min-width: 180px;
+}
+
+.ticker-input-wrap:focus-within {
+  border-color: var(--accent);
+}
+
+.ticker-input {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: inherit;
+  font-weight: 600;
+  outline: none;
+  padding: 8px 0;
+  width: 140px;
+}
+
+.ticker-input::placeholder {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.ticker-chevron {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.ticker-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  min-width: 260px;
+  max-height: 300px;
+  overflow-y: auto;
+  z-index: 200;
+  box-shadow: 0 8px 24px #00000040;
+}
+
+.ticker-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  transition: background var(--transition);
+}
+
+.ticker-option:hover {
+  background: var(--bg-card-hover);
+}
+
+.to-ticker {
+  font-weight: 600;
+  color: var(--text-primary);
+  min-width: 80px;
+}
+
+.to-price {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.to-change {
+  margin-left: auto;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.to-change.pos { color: var(--green); }
+.to-change.neg { color: var(--red); }
+
+/* Period tabs */
+.period-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.period-tab {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  padding: 7px 14px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  transition: all var(--transition);
+}
+
+.period-tab:hover {
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+.period-tab.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+/* Add indicator button */
+.add-ind-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  transition: all var(--transition);
+  margin-left: auto;
+}
+
+.add-ind-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Indicator picker dropdown */
+.ind-picker {
+  position: relative;
+}
+
+.ind-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  min-width: 240px;
+  z-index: 200;
+  box-shadow: 0 8px 24px #00000040;
+}
+
+.ind-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  transition: background var(--transition);
+  color: var(--text-primary);
+}
+
+.ind-option:hover {
+  background: var(--bg-card-hover);
+}
+
+.ind-option.active {
+  color: var(--accent);
+}
+
+.ind-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ind-name {
+  flex: 1;
+  text-align: left;
+}
+
+.ind-type {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-input);
+  padding: 2px 6px;
+  border-radius: 10px;
+}
+
+.ind-check {
+  color: var(--accent);
+  font-size: 12px;
+}
+
+/* ── Active chips ────────────────────────────────────────────── */
+.ind-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.ind-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-card);
+  border: 1px solid;
+  border-radius: 20px;
+  padding: 5px 10px 5px 8px;
+  font-size: 12px;
+}
+
+.chip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.chip-label {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.chip-param {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: inherit;
+  width: 46px;
+  padding: 1px 4px;
+  text-align: center;
+}
+
+.chip-remove {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  transition: color var(--transition);
+}
+
+.chip-remove:hover {
+  color: var(--red);
+}
+
+/* ── States ──────────────────────────────────────────────────── */
+.ind-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 80px 20px;
+  color: var(--text-muted);
+}
+
+.empty-icon {
+  opacity: 0.3;
+}
+
+.ind-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--red-bg);
+  border: 1px solid var(--red);
+  color: var(--red);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.ind-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-secondary);
+  padding: 40px 0;
+  justify-content: center;
+  font-size: 14px;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ── Charts ──────────────────────────────────────────────────── */
+.charts-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.chart-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+
+.chart-card h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chart-badge {
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.85;
+}
+
+/* Fibonacci */
+.fib-table {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fib-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.fib-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.fib-level {
+  color: var(--text-secondary);
+  min-width: 44px;
+  font-weight: 500;
+}
+
+.fib-price {
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  min-width: 80px;
+}
+
+.fib-bar-wrap {
+  flex: 1;
+  background: var(--bg-input);
+  border-radius: 3px;
+  height: 5px;
+  overflow: hidden;
+}
+
+.fib-bar {
+  height: 100%;
+  border-radius: 3px;
+  opacity: 0.6;
+  transition: width 0.5s ease;
+}
+
+.fib-note {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 12px;
+}

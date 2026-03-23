@@ -3,19 +3,20 @@ import { Sidebar } from './components/Sidebar'
 import { Dashboard } from './components/Dashboard'
 import { StockTable } from './components/StockTable'
 import { StockDetail } from './components/StockDetail'
+import { IndicatorPanel } from './components/IndicatorPanel'
 import { fetchAllStocks } from './api'
 import './App.css'
 
 const REFRESH_INTERVAL = 30_000
 
 function App() {
-  const [stocks, setStocks] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [stocks,        setStocks]        = useState([])
+  const [loading,       setLoading]       = useState(true)
+  const [error,         setError]         = useState(null)
   const [selectedStock, setSelectedStock] = useState(null)
-  const [view, setView] = useState('dashboard')
-  const [lastUpdated, setLastUpdated] = useState(null)
-  const [searchQuery, setSearchQuery] = useState('')
+  const [view,          setView]          = useState('dashboard')
+  const [lastUpdated,   setLastUpdated]   = useState(null)
+  const [searchQuery,   setSearchQuery]   = useState('')
 
   const loadStocks = useCallback(async () => {
     try {
@@ -93,6 +94,10 @@ function App() {
             onSearchChange={setSearchQuery}
             title="Active Signals"
           />
+        )}
+
+        {view === 'indicators' && (
+          <IndicatorPanel stocks={stocks} />
         )}
       </main>
     </div>

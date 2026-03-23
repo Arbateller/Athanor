@@ -1,8 +1,6 @@
 """
-fetcher.py - Parallel Stock Fetcher with RSI + MACD
-Uses ThreadPoolExecutor to fetch all stocks simultaneously.
-Run from inside the fetcher/ folder:
-    python fetcher.py
+fetcher.py - Parallel Stock Fetcher (price data only)
+Indicators are computed on-demand via the API.
 """
 
 import yfinance as yf
@@ -20,75 +18,64 @@ sys.path.insert(0, PROJECT_ROOT)
 load_dotenv(os.path.join(PROJECT_ROOT, "config", ".env"))
 
 from cache import cache
-from indicators import calculate_all, generate_signal
 
 TRACKED_STOCKS = [s.strip().upper() for s in os.getenv("TRACKED_STOCKS", "AAPL,MSFT").split(",")]
 FETCH_INTERVAL = int(os.getenv("FETCH_INTERVAL", 300))
-MAX_WORKERS = int(os.getenv("MAX_WORKERS", 10))  # 10 parallel threads
+MAX_WORKERS    = int(os.getenv("MAX_WORKERS", 10))
 
 
 # ─── FETCH ONE STOCK ──────────────────────────────────────────────────────────
 
 def fetch_single_stock(ticker: str):
     try:
-        stock = yf.Ticker(ticker)
-        fast = stock.fast_info
+        stock      = yf.Ticker(ticker)
+        fast       = stock.fast_info
 
-        price      = getattr(fast, "last_price", None) or 0
-        open_      = getattr(fast, "open", None) or 0
-        high       = getattr(fast, "day_high", None) or 0
-        low        = getattr(fast, "day_low", None) or 0
-        prev_close = getattr(fast, "previous_close", None) or 0
-        volume     = getattr(fast, "last_volume", None) or 0
-        market_cap = getattr(fast, "market_cap", None) or 0
-        year_high  = getattr(fast, "year_high", None) or 0
-        year_low   = getattr(fast, "year_low", None) or 0
-        currency   = getattr(fast, "currency", "USD") or "USD"
-        exchange   = getattr(fast, "exchange", "N/A") or "N/A"
+        price      = getattr(fast, "last_price",      None) or 0
+        open_      = getattr(fast, "open",             None) or 0
+        high       = getattr(fast, "day_high",         None) or 0
+        low        = getattr(fast, "day_low",          None) or 0
+        prev_close = getattr(fast, "previous_close",   None) or 0
+        volume     = getattr(fast, "last_volume",      None) or 0
+        market_cap = getattr(fast, "market_cap",       None) or 0
+        year_high  = getattr(fast, "year_high",        None) or 0
+        year_low   = getattr(fast, "year_low",         None) or 0
+        currency   = getattr(fast, "currency",         "USD") or "USD"
+        exchange   = getattr(fast, "exchange",         "N/A") or "N/A"
 
         change     = round(price - prev_close, 2) if price and prev_close else 0
         change_pct = round((change / prev_close) * 100, 2) if prev_close else 0
 
-        # Historical closes for indicators
-        hist   = stock.history(period="60d", interval="1d")
-        closes = list(hist["Close"].values) if not hist.empty else []
-
-        indicator_values = calculate_all(closes)
-        signal, reason   = generate_signal(indicator_values)
-
         return {
-            "ticker":        ticker,
-            "name":          ticker,
-            "price":         round(price, 2),
-            "open":          round(open_, 2),
-            "high":          round(high, 2),
-            "low":           round(low, 2),
-            "prev_close":    round(prev_close, 2),
-            "change":        change,
-            "change_pct":    change_pct,
-            "volume":        int(volume),
-            "market_cap":    int(market_cap),
-            "52w_high":      round(year_high, 2),
-            "52w_low":       round(year_low, 2),
-            "currency":      currency,
-            "exchange":      exchange,
-            "indicators": indicator_values,
-            "signal":        signal,
-            "signal_reason": reason,
-            "fetched_at":    datetime.utcnow().isoformat() + "Z",
+            "ticker":     ticker,
+            "name":       ticker,
+            "price":      round(price, 2),
+            "open":       round(open_, 2),
+            "high":       round(high, 2),
+            "low":        round(low, 2),
+            "prev_close": round(prev_close, 2),
+            "change":     change,
+            "change_pct": change_pct,
+            "volume":     int(volume),
+            "market_cap": int(market_cap),
+            "52w_high":   round(year_high, 2),
+            "52w_low":    round(year_low, 2),
+            "currency":   currency,
+            "exchange":   exchange,
+            "fetched_at": datetime.utcnow().isoformat() + "Z",
         }
 
     except Exception as e:
-        print(f"[Fetcher] ❌ {ticker}: {e}")
+        print(f"[Fetcher] ERROR {ticker}: {e}")
         return None
 
 
 # ─── PARALLEL FETCH ALL ───────────────────────────────────────────────────────
 
 def fetch_all_stocks():
-    start = datetime.now()
-    total = len(TRACKED_STOCKS)
-    print(f"\n[Fetcher] 🔄 Fetching {total} stocks with {MAX_WORKERS} parallel workers...")
+    start   = datetime.now()
+    total   = len(TRACKED_STOCKS)
+    print(f"\n[Fetcher] Fetching {total} stocks with {MAX_WORKERS} workers...")
 
     all_data = {}
     success  = 0
@@ -106,49 +93,36 @@ def fetch_all_stocks():
                     all_data[ticker] = data
                     success += 1
                     sign = "+" if data["change"] >= 0 else ""
-                    rsi_str = f"RSI:{data['indicators']['rsi_14']}" if data['indicators']['rsi_14'] else "RSI:N/A"
-                    print(f"  ✅ {ticker:<12} ${data['price']:<10} {sign}{data['change_pct']}% | {rsi_str} | {data['signal']}")
+                    print(f"  OK {ticker:<12} ${data['price']:<10} {sign}{data['change_pct']}%")
                 else:
                     failed += 1
-                    print(f"  ❌ {ticker} - No data")
+                    print(f"  FAIL {ticker} - No data")
             except Exception as e:
                 failed += 1
-                print(f"  ❌ {ticker} - {e}")
+                print(f"  FAIL {ticker} - {e}")
 
-    # Save full snapshot to Redis so API can serve it immediately
     if all_data:
         cache.set_all_stocks(all_data)
 
     elapsed = (datetime.now() - start).seconds
-    print(f"\n[Fetcher] ✅ {success}/{total} stocks fetched in {elapsed}s ({failed} failed)")
-
-    # Print alerts
-    alerts = [d for d in all_data.values() if "BUY" in d["signal"] or "SELL" in d["signal"]]
-    if alerts:
-        print("\n" + "=" * 55)
-        print("   ⚠️  ALERTS")
-        print("=" * 55)
-        for a in alerts:
-            emoji = "🟢" if "BUY" in a["signal"] else "🔴"
-            print(f"  {emoji}  {a['ticker']:<12} {a['signal']:<14} {a['signal_reason']}")
-        print("=" * 55 + "\n")
+    print(f"\n[Fetcher] {success}/{total} stocks fetched in {elapsed}s ({failed} failed)")
 
 
 # ─── MAIN ─────────────────────────────────────────────────────────────────────
 
 def main():
     print("=" * 55)
-    print("   📈 Stock Fetcher — Parallel Mode")
+    print("   Stock Fetcher - Parallel Mode (indicators on-demand)")
     print("=" * 55)
 
     if not cache.is_connected():
-        print("❌ Redis not connected. Run: redis-server")
+        print("ERROR: Redis not connected. Run: redis-server")
         sys.exit(1)
 
-    print(f"✅ Redis connected")
-    print(f"📊 Tracking {len(TRACKED_STOCKS)} stocks")
-    print(f"⚡ Workers: {MAX_WORKERS} parallel threads")
-    print(f"⏱  Interval: every {FETCH_INTERVAL}s")
+    print(f"Redis connected")
+    print(f"Tracking {len(TRACKED_STOCKS)} stocks")
+    print(f"Workers: {MAX_WORKERS} parallel threads")
+    print(f"Interval: every {FETCH_INTERVAL}s")
     print("-" * 55)
 
     fetch_all_stocks()

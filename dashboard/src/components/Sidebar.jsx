@@ -1,10 +1,11 @@
-import { LayoutDashboard, List, Zap, RefreshCw, TrendingUp } from 'lucide-react'
+import { LayoutDashboard, List, Zap, RefreshCw, TrendingUp, LineChart } from 'lucide-react'
 import './Sidebar.css'
 
 const NAV_ITEMS = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'stocks', label: 'All Stocks', icon: List },
-  { id: 'signals', label: 'Signals', icon: Zap },
+  { id: 'dashboard',  label: 'Dashboard',  icon: LayoutDashboard },
+  { id: 'stocks',     label: 'All Stocks', icon: List },
+  { id: 'signals',    label: 'Signals',    icon: Zap },
+  { id: 'indicators', label: 'Indicators', icon: LineChart },
 ]
 
 export function Sidebar({ view, onViewChange, lastUpdated, stockCount, onRefresh }) {
