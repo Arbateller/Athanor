@@ -14,71 +14,17 @@ from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dotenv import load_dotenv
 
+PROJECT_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-load_dotenv(os.path.join(os.path.dirname(__file__), "..", "config", ".env"))
+sys.path.insert(0, PROJECT_ROOT)
+load_dotenv(os.path.join(PROJECT_ROOT, "config", ".env"))
 
 from cache import cache
+from indicators import calculate_all, generate_signal
 
 TRACKED_STOCKS = [s.strip().upper() for s in os.getenv("TRACKED_STOCKS", "AAPL,MSFT").split(",")]
 FETCH_INTERVAL = int(os.getenv("FETCH_INTERVAL", 300))
 MAX_WORKERS = int(os.getenv("MAX_WORKERS", 10))  # 10 parallel threads
-
-
-# ─── INDICATORS ───────────────────────────────────────────────────────────────
-
-def calculate_rsi(closes: list, period: int = 14):
-    if len(closes) < period + 1:
-        return None
-    diffs = [closes[i] - closes[i - 1] for i in range(-period, 0)]
-    gains = [d for d in diffs if d > 0]
-    losses = [abs(d) for d in diffs if d < 0]
-    avg_gain = sum(gains) / period if gains else 0
-    avg_loss = sum(losses) / period if losses else 0
-    if avg_loss == 0:
-        return 100.0
-    return round(100 - (100 / (1 + avg_gain / avg_loss)), 2)
-
-
-def calculate_ema(closes: list, period: int):
-    if len(closes) < period:
-        return []
-    ema = [sum(closes[:period]) / period]
-    k = 2 / (period + 1)
-    for price in closes[period:]:
-        ema.append((price - ema[-1]) * k + ema[-1])
-    return ema
-
-
-def calculate_macd(closes: list, fast=12, slow=26, signal=9):
-    if len(closes) < slow + signal:
-        return None, None, None
-    ema_fast = calculate_ema(closes, fast)
-    ema_slow = calculate_ema(closes, slow)
-    min_len = min(len(ema_fast), len(ema_slow))
-    macd_line = [f - s for f, s in zip(ema_fast[-min_len:], ema_slow[-min_len:])]
-    if len(macd_line) < signal:
-        return None, None, None
-    signal_line = calculate_ema(macd_line, signal)
-    if not signal_line:
-        return None, None, None
-    hist = macd_line[-1] - signal_line[-1]
-    return round(macd_line[-1], 4), round(signal_line[-1], 4), round(hist, 4)
-
-
-def get_signal(rsi, macd_hist):
-    if rsi is None or macd_hist is None:
-        return "UNKNOWN", "Not enough data"
-    bullish = macd_hist > 0
-    bearish = macd_hist < 0
-    if rsi < 30 and bullish:
-        return "STRONG BUY",  f"RSI {rsi} oversold + MACD bullish"
-    if rsi < 45 and bullish:
-        return "BUY",         f"RSI {rsi} low + MACD bullish momentum"
-    if rsi > 70 and bearish:
-        return "STRONG SELL", f"RSI {rsi} overbought + MACD bearish"
-    if rsi > 55 and bearish:
-        return "SELL",        f"RSI {rsi} high + MACD bearish momentum"
-    return "HOLD", f"RSI {rsi} neutral, no clear signal"
 
 
 # ─── FETCH ONE STOCK ──────────────────────────────────────────────────────────
@@ -107,9 +53,8 @@ def fetch_single_stock(ticker: str):
         hist   = stock.history(period="60d", interval="1d")
         closes = list(hist["Close"].values) if not hist.empty else []
 
-        rsi                          = calculate_rsi(closes) if len(closes) >= 15 else None
-        macd_line, sig_line, macd_h  = calculate_macd(closes) if len(closes) >= 35 else (None, None, None)
-        signal, reason               = get_signal(rsi, macd_h)
+        indicator_values = calculate_all(closes)
+        signal, reason   = generate_signal(indicator_values)
 
         return {
             "ticker":        ticker,
@@ -127,12 +72,7 @@ def fetch_single_stock(ticker: str):
             "52w_low":       round(year_low, 2),
             "currency":      currency,
             "exchange":      exchange,
-            "indicators": {
-                "rsi_14":      rsi,
-                "macd_line":   macd_line,
-                "macd_signal": sig_line,
-                "macd_hist":   macd_h,
-            },
+            "indicators": indicator_values,
             "signal":        signal,
             "signal_reason": reason,
             "fetched_at":    datetime.utcnow().isoformat() + "Z",
