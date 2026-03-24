@@ -4,6 +4,7 @@ import { Dashboard } from './components/Dashboard'
 import { StockTable } from './components/StockTable'
 import { StockDetail } from './components/StockDetail'
 import { IndicatorPanel } from './components/IndicatorPanel'
+import { SignalScanner } from './components/SignalScanner'
 import { fetchAllStocks } from './api'
 import './App.css'
 
@@ -67,37 +68,20 @@ function App() {
         {view === 'dashboard' && (
           <Dashboard stocks={stocks} loading={loading} onSelectStock={handleSelectStock} />
         )}
-
         {view === 'stocks' && (
-          <StockTable
-            stocks={filteredStocks}
-            loading={loading}
-            onSelectStock={handleSelectStock}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-          />
+          <StockTable stocks={filteredStocks} loading={loading} onSelectStock={handleSelectStock} searchQuery={searchQuery} onSearchChange={setSearchQuery} />
         )}
-
         {view === 'detail' && selectedStock && (
-          <StockDetail
-            ticker={selectedStock.Ticker}
-            onBack={() => setView('stocks')}
-          />
+          <StockDetail ticker={selectedStock.Ticker} onBack={() => setView('stocks')} />
         )}
-
         {view === 'signals' && (
-          <StockTable
-            stocks={filteredStocks.filter(s => s.Signal && s.Signal !== 'HOLD')}
-            loading={loading}
-            onSelectStock={handleSelectStock}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            title="Active Signals"
-          />
+          <StockTable stocks={filteredStocks.filter(s => s.Signal && s.Signal !== 'HOLD')} loading={loading} onSelectStock={handleSelectStock} searchQuery={searchQuery} onSearchChange={setSearchQuery} title="Active Signals" />
         )}
-
         {view === 'indicators' && (
           <IndicatorPanel stocks={stocks} />
+        )}
+        {view === 'scanner' && (
+          <SignalScanner />
         )}
       </main>
     </div>
